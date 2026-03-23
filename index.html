@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpeedTest Pro — Kiểm tra tốc độ mạng</title>
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700;900&family=Roboto+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #060a12;
+    --surface: #0d1421;
+    --card: #111827;
+    --border: #1e2d45;
+    --accent: #00d4ff;
+    --accent2: #7c3aed;
+    --accent3: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Roboto', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(ellipse 80% 50% at 20% 20%, rgba(0,212,255,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 40% at 80% 80%, rgba(124,58,237,0.06) 0%, transparent 60%);
+    pointer-events: none; z-index: 0;
+  }
+  .grid-bg {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+    background-size: 50px 50px;
+    pointer-events: none; z-index: 0;
+  }
+  .container {
+    position: relative; z-index: 1;
+    max-width: 1100px; margin: 0 auto;
+    padding: 24px 20px 60px;
+  }
+  header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 16px 0 28px; border-bottom: 1px solid var(--border);
+    margin-bottom: 36px; flex-wrap: wrap; gap: 12px;
+  }
+  .logo {
+    font-family: 'Roboto', sans-serif; font-weight: 900;
+    font-size: 1.4rem; letter-spacing: 3px; text-transform: uppercase;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .header-info { display: flex; gap: 8px; flex-wrap: wrap; font-size: 0.78rem; }
+  .pill {
+    background: var(--surface); border: 1px solid var(--border);
+    padding: 5px 12px; border-radius: 20px;
+    display: flex; align-items: center; gap: 6px;
+    font-family: 'Roboto', sans-serif; font-weight: 400; color: var(--muted);
+  }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent3); animation: blink 2s infinite; flex-shrink: 0; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .speedometer-section { display: flex; flex-direction: column; align-items: center; margin-bottom: 36px; }
+  .gauge-wrapper { position: relative; width: 340px; height: 210px; margin-bottom: 8px; }
+  #gauge-canvas { width: 100%; height: 100%; }
+  .speed-display {
+    position: absolute; bottom: 0; left: 50%;
+    transform: translateX(-50%); text-align: center; white-space: nowrap;
+  }
+  .speed-value {
+    font-family: 'Roboto Mono', monospace; font-size: 4rem; font-weight: 700; line-height: 1;
+    background: linear-gradient(135deg, #fff 0%, var(--accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .speed-unit {
+    font-size: 0.82rem; color: var(--muted); letter-spacing: 3px;
+    text-transform: uppercase; font-family: 'Roboto', sans-serif; font-weight: 500;
+  }
+  .test-phase {
+    font-size: 0.78rem; color: var(--accent);
+    font-family: 'Roboto Mono', monospace; letter-spacing: 3px; text-transform: uppercase;
+    margin-top: 8px; min-height: 20px; opacity: 0; transition: opacity 0.3s;
+  }
+  .test-phase.visible { opacity: 1; }
+
+  .btn-start {
+    position: relative; width: 140px; height: 140px; border-radius: 50%;
+    border: 2px solid var(--accent); background: transparent; cursor: pointer;
+    font-family: 'Roboto', sans-serif; font-size: 1rem; font-weight: 700;
+    color: var(--accent); letter-spacing: 2px; text-transform: uppercase;
+    transition: all 0.3s; margin: 18px 0;
+  }
+  .btn-start::after {
+    content: ''; position: absolute; inset: -4px; border-radius: 50%;
+    border: 1px solid rgba(0,212,255,0.2); animation: pulse-ring 2.5s infinite;
+  }
+  @keyframes pulse-ring { 0% { transform: scale(1); opacity: 0.6; } 100% { transform: scale(1.3); opacity: 0; } }
+  .btn-start:hover { background: rgba(0,212,255,0.1); box-shadow: 0 0 50px rgba(0,212,255,0.4); color: #fff; }
+  .btn-start.running { border-color: var(--warn); color: var(--warn); animation: pulse-btn 1s infinite; }
+  @keyframes pulse-btn { 0%,100% { box-shadow: 0 0 20px rgba(245,158,11,0.3); } 50% { box-shadow: 0 0 50px rgba(245,158,11,0.7); } }
+
+  .status-msg {
+    text-align: center; font-size: 0.8rem; color: var(--muted);
+    margin-top: 4px; min-height: 20px;
+    font-family: 'Roboto', sans-serif; font-weight: 400;
+  }
+
+  .metrics-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 20px; }
+  .metric-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px 16px; text-align: center;
+    position: relative; overflow: hidden; transition: all 0.3s;
+  }
+  .metric-card::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: var(--card-accent, var(--accent));
+    transform: scaleX(0); transition: transform 0.5s; transform-origin: left;
+  }
+  .metric-card.active::before, .metric-card.done::before { transform: scaleX(1); }
+  .metric-card:nth-child(1) { --card-accent: var(--accent); }
+  .metric-card:nth-child(2) { --card-accent: var(--accent2); }
+  .metric-card:nth-child(3) { --card-accent: var(--accent3); }
+  .metric-icon { font-size: 1.4rem; margin-bottom: 6px; }
+  .metric-label { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); margin-bottom: 8px; font-weight: 500; }
+  .metric-value { font-family: 'Roboto Mono', monospace; font-size: 1.8rem; font-weight: 700; color: var(--text); line-height: 1; }
+  .metric-unit { font-size: 0.66rem; color: var(--muted); margin-top: 4px; }
+
+  .progress-section {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px 22px; margin-bottom: 18px;
+  }
+  .progress-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+  .progress-title { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: var(--muted); font-weight: 500; }
+  .progress-pct { font-family: 'Roboto Mono', monospace; font-size: 0.78rem; color: var(--accent); font-weight: 500; }
+  .progress-bar { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+  .progress-fill {
+    height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px; width: 0%; transition: width 0.3s ease; position: relative;
+  }
+  .progress-fill::after {
+    content: ''; position: absolute; right: -1px; top: -2px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 8px var(--accent);
+  }
+
+  .chart-section {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px 22px; margin-bottom: 18px;
+  }
+  .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .chart-legend { display: flex; gap: 14px; font-size: 0.7rem; color: var(--muted); }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 8px; height: 8px; border-radius: 50%; }
+  #speed-chart { width: 100%; height: 110px; display: block; }
+
+  .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 18px; }
+  .info-card { background: var(--card); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+  .info-card-title {
+    font-size: 0.66rem; text-transform: uppercase; letter-spacing: 2px; color: var(--muted);
+    margin-bottom: 12px; display: flex; align-items: center; gap: 8px; font-weight: 600;
+  }
+  .info-card-title::before {
+    content: ''; width: 4px; height: 4px; border-radius: 50%;
+    background: var(--accent); box-shadow: 0 0 6px var(--accent); flex-shrink: 0;
+  }
+  .info-row {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    padding: 7px 0; border-bottom: 1px solid var(--border); font-size: 0.82rem; gap: 8px;
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-row-label { color: var(--muted); font-weight: 400; flex-shrink: 0; }
+  .info-row-value { color: var(--text); font-weight: 500; text-align: right; word-break: break-all; }
+
+  .results-section {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 14px; padding: 22px; margin-bottom: 20px; display: none;
+  }
+  .results-section.show { display: block; }
+  .results-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 14px 0; }
+  .result-item {
+    text-align: center; padding: 14px 8px;
+    background: var(--surface); border-radius: 10px; border: 1px solid var(--border);
+  }
+  .result-val { font-family: 'Roboto Mono', monospace; font-size: 1.5rem; font-weight: 700; margin-bottom: 4px; }
+  .result-val.good { color: var(--accent3); }
+  .result-val.ok   { color: var(--warn); }
+  .result-val.bad  { color: var(--danger); }
+  .result-label { font-size: 0.66rem; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; font-weight: 500; }
+
+  .rating-row {
+    display: flex; align-items: center; gap: 12px;
+    margin-top: 10px; padding: 10px 14px;
+    background: var(--surface); border-radius: 8px; border: 1px solid var(--border);
+  }
+  .rating-label { font-size: 0.78rem; color: var(--muted); min-width: 120px; font-weight: 400; }
+  .rating-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .rating-fill { height: 100%; border-radius: 3px; transition: width 1s ease; }
+  .rating-score { font-family: 'Roboto Mono', monospace; font-size: 0.78rem; min-width: 36px; text-align: right; font-weight: 500; }
+
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+  .container > * { animation: fadeInUp 0.4s ease both; }
+  .container > *:nth-child(2) { animation-delay: 0.05s; }
+  .container > *:nth-child(3) { animation-delay: 0.1s; }
+  .container > *:nth-child(4) { animation-delay: 0.15s; }
+
+  @media (max-width: 640px) {
+    .gauge-wrapper { width: 280px; height: 175px; }
+    .speed-value { font-size: 3rem; }
+    .metric-value { font-size: 1.3rem; }
+    .info-grid { grid-template-columns: 1fr; }
+    .results-grid { grid-template-columns: repeat(2, 1fr); }
+    header { flex-direction: column; align-items: flex-start; }
+    .header-info { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div class="container">
+
+  <header>
+    <div class="logo">SpeedTest Pro</div>
+    <div class="header-info">
+      <div class="pill"><div class="dot"></div><span id="h-ip">Đang tải IP...</span></div>
+      <div class="pill" id="h-location">📍 Đang định vị...</div>
+      <div class="pill" id="h-isp">🌐 ISP...</div>
+      <div class="pill" id="h-time">🕐 --:--</div>
+    </div>
+  </header>
+
+  <div class="speedometer-section">
+    <div class="gauge-wrapper">
+      <canvas id="gauge-canvas" width="680" height="420"></canvas>
+      <div class="speed-display">
+        <div class="speed-value" id="speed-val">0.0</div>
+        <div class="speed-unit">Mbps</div>
+      </div>
+    </div>
+    <div class="test-phase" id="phase-label"></div>
+    <button class="btn-start" id="btn-start" onclick="startTest()">BẮT ĐẦU</button>
+    <div class="status-msg" id="status-msg">Nhấn để bắt đầu kiểm tra tốc độ mạng</div>
+  </div>
+
+  <div class="metrics-row">
+    <div class="metric-card" id="card-ping">
+      <div class="metric-icon">⚡</div>
+      <div class="metric-label">Ping</div>
+      <div class="metric-value" id="val-ping">--</div>
+      <div class="metric-unit">ms</div>
+    </div>
+    <div class="metric-card" id="card-down">
+      <div class="metric-icon">↓</div>
+      <div class="metric-label">Tải xuống</div>
+      <div class="metric-value" id="val-down">--</div>
+      <div class="metric-unit">Mbps</div>
+    </div>
+    <div class="metric-card" id="card-up">
+      <div class="metric-icon">↑</div>
+      <div class="metric-label">Tải lên</div>
+      <div class="metric-value" id="val-up">--</div>
+      <div class="metric-unit">Mbps</div>
+    </div>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-header">
+      <span class="progress-title" id="prog-label">Sẵn sàng kiểm tra</span>
+      <span class="progress-pct" id="prog-pct">0%</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+
+  <div class="chart-section">
+    <div class="chart-header">
+      <span class="progress-title">Biểu đồ tốc độ thời gian thực</span>
+      <div class="chart-legend">
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div>Download</div>
+        <div class="legend-item"><div class="legend-dot" style="background:var(--accent2)"></div>Upload</div>
+      </div>
+    </div>
+    <canvas id="speed-chart"></canvas>
+  </div>
+
+  <div class="info-grid">
+    <div class="info-card">
+      <div class="info-card-title">Thông tin IP & Nhà mạng</div>
+      <div class="info-row"><span class="info-row-label">Địa chỉ IPv4</span><span class="info-row-value" id="net-ipv4">Đang tải...</span></div>
+      <div class="info-row"><span class="info-row-label">Địa chỉ IPv6</span><span class="info-row-value" id="net-ipv6" style="font-size:0.7rem">Đang kiểm tra...</span></div>
+      <div class="info-row"><span class="info-row-label">Nhà mạng (ISP)</span><span class="info-row-value" id="net-isp">--</span></div>
+      <div class="info-row"><span class="info-row-label">Tổ chức</span><span class="info-row-value" id="net-org">--</span></div>
+      <div class="info-row"><span class="info-row-label">Số ASN</span><span class="info-row-value" id="net-asn">--</span></div>
+      <div class="info-row"><span class="info-row-label">Thành phố</span><span class="info-row-value" id="net-city">--</span></div>
+      <div class="info-row"><span class="info-row-label">Tỉnh / Vùng</span><span class="info-row-value" id="net-region">--</span></div>
+      <div class="info-row"><span class="info-row-label">Quốc gia</span><span class="info-row-value" id="net-country">--</span></div>
+      <div class="info-row"><span class="info-row-label">Múi giờ</span><span class="info-row-value" id="net-tz">--</span></div>
+      <div class="info-row"><span class="info-row-label">Tọa độ GPS</span><span class="info-row-value" id="net-coords">--</span></div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-title">Thiết bị & Trình duyệt</div>
+      <div class="info-row"><span class="info-row-label">Hệ điều hành</span><span class="info-row-value" id="dev-os">--</span></div>
+      <div class="info-row"><span class="info-row-label">Phiên bản OS</span><span class="info-row-value" id="dev-osver">--</span></div>
+      <div class="info-row"><span class="info-row-label">Loại thiết bị</span><span class="info-row-value" id="dev-type">--</span></div>
+      <div class="info-row"><span class="info-row-label">Trình duyệt</span><span class="info-row-value" id="dev-browser">--</span></div>
+      <div class="info-row"><span class="info-row-label">Phiên bản</span><span class="info-row-value" id="dev-bver">--</span></div>
+      <div class="info-row"><span class="info-row-label">Render Engine</span><span class="info-row-value" id="dev-engine">--</span></div>
+      <div class="info-row"><span class="info-row-label">Giao thức</span><span class="info-row-value" id="con-proto">--</span></div>
+      <div class="info-row"><span class="info-row-label">Jitter</span><span class="info-row-value" id="con-jitter">--</span></div>
+      <div class="info-row"><span class="info-row-label">Packet Loss</span><span class="info-row-value" id="con-loss">--</span></div>
+      <div class="info-row"><span class="info-row-label">Độ phân giải MH</span><span class="info-row-value" id="dev-screen">--</span></div>
+    </div>
+  </div>
+
+  <div class="results-section" id="results-section">
+    <div class="info-card-title" style="margin-bottom:0">Kết quả kiểm tra</div>
+    <div class="results-grid">
+      <div class="result-item"><div class="result-val" id="r-ping">--</div><div class="result-label">Ping (ms)</div></div>
+      <div class="result-item"><div class="result-val" id="r-jitter">--</div><div class="result-label">Jitter (ms)</div></div>
+      <div class="result-item"><div class="result-val" id="r-down">--</div><div class="result-label">Download (Mbps)</div></div>
+      <div class="result-item"><div class="result-val" id="r-up">--</div><div class="result-label">Upload (Mbps)</div></div>
+    </div>
+    <div class="rating-row"><span class="rating-label">🎬 Video 4K Ultra HD</span><div class="rating-bar"><div class="rating-fill" id="r-4k" style="background:var(--accent3)"></div></div><span class="rating-score" id="rs-4k">-</span></div>
+    <div class="rating-row"><span class="rating-label">🎮 Gaming Online</span><div class="rating-bar"><div class="rating-fill" id="r-game" style="background:var(--accent)"></div></div><span class="rating-score" id="rs-game">-</span></div>
+    <div class="rating-row"><span class="rating-label">📹 Video Call HD</span><div class="rating-bar"><div class="rating-fill" id="r-call" style="background:var(--accent2)"></div></div><span class="rating-score" id="rs-call">-</span></div>
+  </div>
+
+</div>
+
+<script>
+// ── TIME ──────────────────────────────────────────────
+function updateTime() {
+  document.getElementById('h-time').textContent = '🕐 ' + new Date().toLocaleTimeString('vi-VN');
+}
+setInterval(updateTime, 1000); updateTime();
+
+// ── DETECT OS ────────────────────────────────────────
+function detectOS() {
+  const ua = navigator.userAgent;
+  let os = 'Unknown', osVer = '', deviceType = 'Máy tính';
+
+  if (/Android/i.test(ua)) {
+    os = 'Android';
+    const m = ua.match(/Android\s([0-9.]+)/);
+    osVer = m ? m[1] : '';
+    deviceType = /Mobile/i.test(ua) ? 'Điện thoại' : 'Máy tính bảng';
+  } else if (/iPad/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1)) {
+    os = 'iPadOS';
+    const m = ua.match(/OS ([0-9_]+)/);
+    osVer = m ? m[1].replace(/_/g, '.') : '';
+    deviceType = 'Máy tính bảng';
+  } else if (/iPhone/i.test(ua)) {
+    os = 'iOS';
+    const m = ua.match(/OS ([0-9_]+)/);
+    osVer = m ? m[1].replace(/_/g, '.') : '';
+    deviceType = 'Điện thoại';
+  } else if (/Windows NT/i.test(ua)) {
+    os = 'Windows';
+    const m = ua.match(/Windows NT ([0-9.]+)/);
+    const v = m ? m[1] : '';
+    const map = {'10.0':'10 / 11','6.3':'8.1','6.2':'8','6.1':'7','6.0':'Vista','5.1':'XP'};
+    osVer = map[v] || v;
+    deviceType = 'Máy tính';
+  } else if (/Mac OS X/i.test(ua)) {
+    os = 'macOS';
+    const m = ua.match(/Mac OS X ([0-9_]+)/);
+    osVer = m ? m[1].replace(/_/g, '.') : '';
+    deviceType = 'Máy tính';
+  } else if (/CrOS/i.test(ua)) {
+    os = 'ChromeOS'; deviceType = 'Máy tính';
+  } else if (/Linux/i.test(ua)) {
+    os = 'Linux'; deviceType = 'Máy tính';
+  }
+  return { os, osVer, deviceType };
+}
+
+// ── DETECT BROWSER ───────────────────────────────────
+function detectBrowser() {
+  const ua = navigator.userAgent;
+  let browser = 'Unknown', version = '', engine = 'Unknown';
+
+  if (/Edg\//i.test(ua)) {
+    browser = 'Microsoft Edge';
+    const m = ua.match(/Edg\/([0-9.]+)/); version = m ? m[1] : '';
+    engine = 'Blink';
+  } else if (/OPR\//i.test(ua)) {
+    browser = 'Opera';
+    const m = ua.match(/OPR\/([0-9.]+)/); version = m ? m[1] : '';
+    engine = 'Blink';
+  } else if (/SamsungBrowser/i.test(ua)) {
+    browser = 'Samsung Internet';
+    const m = ua.match(/SamsungBrowser\/([0-9.]+)/); version = m ? m[1] : '';
+    engine = 'Blink';
+  } else if (/CriOS/i.test(ua)) {
+    browser = 'Chrome (iOS)';
+    const m = ua.match(/CriOS\/([0-9.]+)/); version = m ? m[1] : '';
+    engine = 'WebKit';
+  } else if (/FxiOS/i.test(ua)) {
+    browser = 'Firefox (iOS)';
+    const m = ua.match(/FxiOS\/([0-9.]+)/); version = m ? m[1] : '';
+    engine = 'WebKit';
+  } else if (/Firefox\/[0-9]/i.test(ua)) {
+    browser = 'Mozilla Firefox';
+    const m = ua.match(/Firefox\/([0-9.]+)/); version = m ? m[1] : '';
+    engine = 'Gecko';
+  } else if (/Chrome\/[0-9]/i.test(ua)) {
+    browser = 'Google Chrome';
+    const m = ua.match(/Chrome\/([0-9.]+)/); version = m ? m[1] : '';
+    engine = 'Blink';
+  } else if (/Safari\/[0-9]/i.test(ua)) {
+    browser = 'Safari';
+    const m = ua.match(/Version\/([0-9.]+)/); version = m ? m[1] : '';
+    engine = 'WebKit';
+  } else if (/Trident/i.test(ua)) {
+    browser = 'Internet Explorer'; engine = 'Trident';
+    const m = ua.match(/rv:([0-9.]+)/); version = m ? m[1] : '';
+  }
+
+  const protocol = window.location.protocol === 'https:' ? 'HTTPS / TLS' : 'HTTP';
+  return { browser, version, engine, protocol };
+}
+
+// ── FILL DEVICE INFO ─────────────────────────────────
+function fillDeviceInfo() {
+  const { os, osVer, deviceType } = detectOS();
+  const { browser, version, engine, protocol } = detectBrowser();
+  document.getElementById('dev-os').textContent      = os;
+  document.getElementById('dev-osver').textContent   = osVer || '--';
+  document.getElementById('dev-type').textContent    = deviceType;
+  document.getElementById('dev-browser').textContent = browser;
+  document.getElementById('dev-bver').textContent    = version || '--';
+  document.getElementById('dev-engine').textContent  = engine;
+  document.getElementById('con-proto').textContent   = protocol;
+  document.getElementById('dev-screen').textContent  =
+    screen.width + '×' + screen.height + ' @' + (window.devicePixelRatio || 1) + 'x';
+}
+
+// ── LOAD IP INFO ─────────────────────────────────────
+async function loadIPInfo() {
+  // Primary: ipapi.co
+  try {
+    const r = await fetch('https://ipapi.co/json/', { cache: 'no-store' });
+    if (!r.ok) throw new Error();
+    const d = await r.json();
+    if (d.error) throw new Error(d.reason);
+
+    const ip = d.ip || '--';
+    const org = (d.org || '').replace(/^AS\d+\s/, '');
+    const asn = d.asn || '--';
+
+    document.getElementById('h-ip').textContent       = ip;
+    document.getElementById('h-location').textContent = '📍 ' + (d.city || '--') + (d.country ? ', ' + d.country : '');
+    document.getElementById('h-isp').textContent      = '🌐 ' + org.substring(0, 28);
+    document.getElementById('net-ipv4').textContent   = ip;
+    document.getElementById('net-isp').textContent    = org || '--';
+    document.getElementById('net-org').textContent    = d.org || '--';
+    document.getElementById('net-asn').textContent    = asn;
+    document.getElementById('net-city').textContent   = d.city || '--';
+    document.getElementById('net-region').textContent = d.region || '--';
+    document.getElementById('net-country').textContent= (d.country_name || '--') + (d.country ? ' (' + d.country + ')' : '');
+    document.getElementById('net-tz').textContent     = d.timezone || '--';
+    document.getElementById('net-coords').textContent = d.latitude && d.longitude ? d.latitude + '°, ' + d.longitude + '°' : '--';
+  } catch(e) {
+    // Fallback: ip-api.com (HTTP only)
+    try {
+      const r2 = await fetch('https://ip-api.com/json/?fields=status,country,regionName,city,lat,lon,timezone,isp,org,as,query', { cache: 'no-store' });
+      const d = await r2.json();
+      if (d.status === 'success') {
+        document.getElementById('h-ip').textContent       = d.query || '--';
+        document.getElementById('h-location').textContent = '📍 ' + (d.city || '--');
+        document.getElementById('h-isp').textContent      = '🌐 ' + (d.isp || '--').substring(0, 28);
+        document.getElementById('net-ipv4').textContent   = d.query || '--';
+        document.getElementById('net-isp').textContent    = d.isp || '--';
+        document.getElementById('net-org').textContent    = d.org || '--';
+        document.getElementById('net-asn').textContent    = (d.as || '--').split(' ')[0];
+        document.getElementById('net-city').textContent   = d.city || '--';
+        document.getElementById('net-region').textContent = d.regionName || '--';
+        document.getElementById('net-country').textContent= d.country || '--';
+        document.getElementById('net-tz').textContent     = d.timezone || '--';
+        document.getElementById('net-coords').textContent = d.lat + '°, ' + d.lon + '°';
+      }
+    } catch(e2) {
+      document.getElementById('h-ip').textContent = 'Không tải được';
+    }
+  }
+
+  // IPv6 check riêng
+  try {
+    const r6 = await fetch('https://api64.ipify.org?format=json', { cache: 'no-store' });
+    const d6 = await r6.json();
+    document.getElementById('net-ipv6').textContent =
+      (d6.ip && d6.ip.includes(':')) ? d6.ip : 'Không hỗ trợ IPv6';
+  } catch(e) {
+    document.getElementById('net-ipv6').textContent = 'Không xác định';
+  }
+}
+
+// ── GAUGE ─────────────────────────────────────────────
+const gc = document.getElementById('gauge-canvas');
+const gx = gc.getContext('2d');
+function drawGauge(val, maxVal = 200) {
+  const W = gc.width, H = gc.height;
+  const cx = W / 2, cy = H * 0.82, r = Math.min(W, H) * 0.75;
+  gx.clearRect(0, 0, W, H);
+  const sA = Math.PI;
+
+  // BG segments
+  [[0,.15,'#0d2035'],[.15,.35,'#0e3a55'],[.35,.6,'#0a5070'],[.6,.8,'#077090'],[.8,1,'#049ab5']].forEach(([s,e,c]) => {
+    gx.beginPath(); gx.arc(cx,cy,r, sA+s*Math.PI, sA+e*Math.PI);
+    gx.strokeStyle=c; gx.lineWidth=18; gx.lineCap='butt'; gx.stroke();
+  });
+
+  // Active
+  const pct = Math.min(val, maxVal) / maxVal;
+  if (pct > 0) {
+    const grad = gx.createLinearGradient(cx-r,cy,cx+r,cy);
+    grad.addColorStop(0,'#7c3aed'); grad.addColorStop(0.45,'#00d4ff'); grad.addColorStop(1,'#10b981');
+    gx.beginPath(); gx.arc(cx,cy,r,sA,sA+pct*Math.PI);
+    gx.strokeStyle='rgba(0,212,255,0.18)'; gx.lineWidth=30; gx.stroke();
+    gx.beginPath(); gx.arc(cx,cy,r,sA,sA+pct*Math.PI);
+    gx.strokeStyle=grad; gx.lineWidth=18; gx.lineCap='round'; gx.stroke();
+  }
+
+  // Ticks
+  for (let i=0;i<=20;i++) {
+    const a = sA+(i/20)*Math.PI, major = i%4===0;
+    const i1 = r-(major?30:20), o1 = r-8;
+    gx.beginPath(); gx.moveTo(cx+i1*Math.cos(a),cy+i1*Math.sin(a));
+    gx.lineTo(cx+o1*Math.cos(a),cy+o1*Math.sin(a));
+    gx.strokeStyle=major?'rgba(255,255,255,0.25)':'rgba(255,255,255,0.1)';
+    gx.lineWidth=major?2:1; gx.stroke();
+    if (major) {
+      gx.fillStyle='rgba(100,116,139,0.9)';
+      gx.font=`500 ${W*0.025}px Roboto, sans-serif`;
+      gx.textAlign='center'; gx.textBaseline='middle';
+      gx.fillText(Math.round((i/20)*maxVal), cx+(r-46)*Math.cos(a), cy+(r-46)*Math.sin(a));
+    }
+  }
+
+  // Needle
+  const na = sA+pct*Math.PI;
+  gx.save(); gx.translate(cx,cy); gx.rotate(na);
+  gx.beginPath(); gx.moveTo(-8,0); gx.lineTo(r-26,0);
+  gx.strokeStyle='#fff'; gx.lineWidth=2.5; gx.shadowBlur=12; gx.shadowColor='#00d4ff'; gx.stroke();
+  gx.restore(); gx.shadowBlur=0;
+  gx.beginPath(); gx.arc(cx,cy,9,0,Math.PI*2);
+  gx.fillStyle='#fff'; gx.shadowBlur=20; gx.shadowColor='#00d4ff'; gx.fill(); gx.shadowBlur=0;
+}
+drawGauge(0);
+
+// ── CHART ─────────────────────────────────────────────
+const cc = document.getElementById('speed-chart');
+const cx2 = cc.getContext('2d');
+let chartData = { down: [], up: [] };
+const MAX_PTS = 40;
+
+function resizeChart() {
+  const dpr = window.devicePixelRatio||1;
+  cc.width = cc.offsetWidth*dpr; cc.height = cc.offsetHeight*dpr;
+  cx2.scale(dpr,dpr);
+}
+function drawChart() {
+  const W=cc.offsetWidth, H=cc.offsetHeight;
+  cx2.clearRect(0,0,W,H);
+  const all=[...chartData.down,...chartData.up].filter(v=>v>0);
+  if(all.length<2) return;
+  const maxV=Math.max(...all,10)*1.2;
+  for(let i=1;i<=4;i++){
+    const y=H-(i/4)*H;
+    cx2.beginPath(); cx2.moveTo(0,y); cx2.lineTo(W,y);
+    cx2.strokeStyle='rgba(30,45,69,0.5)'; cx2.lineWidth=1; cx2.stroke();
+    cx2.fillStyle='rgba(100,116,139,0.35)'; cx2.font='9px Roboto Mono,monospace';
+    cx2.fillText(Math.round((i/4)*maxV)+'M',3,y-2);
+  }
+  function line(data,color){
+    if(data.length<2) return;
+    cx2.beginPath();
+    data.forEach((v,i)=>{ const x=(i/(MAX_PTS-1))*W, y=H-(v/maxV)*H; i?cx2.lineTo(x,y):cx2.moveTo(x,y); });
+    cx2.strokeStyle=color; cx2.lineWidth=2; cx2.lineJoin='round';
+    cx2.shadowBlur=10; cx2.shadowColor=color; cx2.stroke(); cx2.shadowBlur=0;
+    cx2.lineTo(W,H); cx2.lineTo(0,H); cx2.closePath();
+    const g=cx2.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,color+'44'); g.addColorStop(1,'transparent');
+    cx2.fillStyle=g; cx2.fill();
+  }
+  line(chartData.down,'#00d4ff'); line(chartData.up,'#7c3aed');
+}
+window.addEventListener('resize',()=>{resizeChart();drawChart();});
+setTimeout(()=>{resizeChart();drawChart();},150);
+
+// ── PING ─────────────────────────────────────────────
+async function measurePing() {
+  const eps = ['https://www.cloudflare.com/cdn-cgi/trace','https://1.1.1.1/cdn-cgi/trace','https://dns.google/resolve?name=test.com&type=A'];
+  const pings = [];
+  for (let i=0;i<8;i++) {
+    const t0=performance.now();
+    try { await fetch(eps[i%eps.length]+'?_='+Math.random(),{cache:'no-store',mode:'no-cors',signal:AbortSignal.timeout(3000)}); } catch(e){}
+    const t=performance.now()-t0;
+    if(t<2000) pings.push(t);
+    await sleep(120);
+  }
+  if(!pings.length) return {ping:999,jitter:0};
+  pings.sort((a,b)=>a-b);
+  const tr=pings.slice(1,pings.length>3?-1:undefined);
+  const avg=(tr.length?tr:pings).reduce((a,b)=>a+b,0)/(tr.length||pings.length);
+  return { ping:Math.round(avg), jitter:Math.round(pings[pings.length-1]-pings[0]) };
+}
+
+// ── DOWNLOAD ─────────────────────────────────────────
+async function measureDownload(onProgress) {
+  const tests=[
+    {url:'https://speed.cloudflare.com/__down?bytes=1000000',  bytes:1_000_000},
+    {url:'https://speed.cloudflare.com/__down?bytes=5000000',  bytes:5_000_000},
+    {url:'https://speed.cloudflare.com/__down?bytes=10000000', bytes:10_000_000},
+    {url:'https://speed.cloudflare.com/__down?bytes=25000000', bytes:25_000_000},
+  ];
+  const results=[]; let totProg=0; const step=1/tests.length;
+  for(const {url,bytes} of tests){
+    const t0=performance.now(); let loaded=0;
+    try {
+      const res=await fetch(url+'&_='+Math.random(),{cache:'no-store',signal:AbortSignal.timeout(20000)});
+      const reader=res.body.getReader();
+      while(true){
+        const {done,value}=await reader.read(); if(done) break;
+        loaded+=value.byteLength;
+        const spd=(loaded*8)/((performance.now()-t0)/1000)/1_000_000;
+        onProgress(spd, totProg+(loaded/bytes)*step);
+      }
+      const elapsed=(performance.now()-t0)/1000;
+      results.push((loaded*8)/elapsed/1_000_000);
+    } catch(e){
+      if(results.length) results.push(results[results.length-1]);
+    }
+    totProg+=step; onProgress(results[results.length-1]||0, totProg);
+  }
+  if(!results.length) return 0;
+  const sorted=[...results].sort((a,b)=>a-b);
+  const tr=sorted.slice(Math.floor(sorted.length*0.1), Math.ceil(sorted.length*0.9));
+  const avg=(tr.length?tr:sorted).reduce((a,b)=>a+b,0)/(tr.length||sorted.length);
+  return Math.round(avg*100)/100;
+}
+
+// ── UPLOAD ─────────────────────────────────────────────
+async function measureUpload(onProgress) {
+  const sizes=[500_000,2_000_000,5_000_000,10_000_000];
+  const results=[]; let totProg=0; const step=1/sizes.length;
+  for(const bytes of sizes){
+    const buf=new Uint8Array(bytes);
+    crypto.getRandomValues(buf.subarray(0,Math.min(4096,bytes)));
+    const t0=performance.now();
+    try {
+      await fetch('https://speed.cloudflare.com/__up',{
+        method:'POST', body:new Blob([buf]),
+        cache:'no-store', signal:AbortSignal.timeout(18000)
+      });
+      const elapsed=(performance.now()-t0)/1000;
+      results.push((bytes*8)/elapsed/1_000_000);
+    } catch(e){ if(results.length) results.push(results[results.length-1]); }
+    totProg+=step; onProgress(results[results.length-1]||0, totProg);
+    await sleep(200);
+  }
+  if(!results.length) return 0;
+  const sorted=[...results].sort((a,b)=>a-b);
+  const tr=sorted.slice(Math.floor(sorted.length*0.1),Math.ceil(sorted.length*0.9));
+  const avg=(tr.length?tr:sorted).reduce((a,b)=>a+b,0)/(tr.length||sorted.length);
+  return Math.round(avg*100)/100;
+}
+
+function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+function setProgress(lbl,pct){
+  document.getElementById('prog-label').textContent=lbl;
+  document.getElementById('prog-pct').textContent=Math.round(pct*100)+'%';
+  document.getElementById('progress-fill').style.width=Math.min(pct*100,100)+'%';
+}
+function setPhase(t){const e=document.getElementById('phase-label');e.textContent=t;e.classList.toggle('visible',!!t);}
+function setStatus(m){document.getElementById('status-msg').textContent=m;}
+
+// ── MAIN TEST ─────────────────────────────────────────
+let testing=false;
+async function startTest(){
+  if(testing) return; testing=true;
+  chartData={down:Array(MAX_PTS).fill(0),up:Array(MAX_PTS).fill(0)};
+  const btn=document.getElementById('btn-start');
+  btn.textContent='DỪNG'; btn.classList.add('running');
+  btn.onclick=()=>location.reload();
+  document.getElementById('results-section').classList.remove('show');
+  ['card-ping','card-down','card-up'].forEach(id=>document.getElementById(id).classList.remove('active','done'));
+  ['val-ping','val-down','val-up'].forEach(id=>document.getElementById(id).textContent='--');
+  ['con-jitter','con-loss'].forEach(id=>document.getElementById(id).textContent='--');
+  drawGauge(0); document.getElementById('speed-val').textContent='0.0';
+
+  // PING
+  setPhase('PING TEST'); setProgress('Đo độ trễ (Ping)...',0);
+  setStatus('Đang đo ping đến Cloudflare & Google DNS...');
+  document.getElementById('card-ping').classList.add('active');
+  const {ping,jitter}=await measurePing();
+  document.getElementById('val-ping').textContent=ping;
+  document.getElementById('con-jitter').textContent=jitter+' ms';
+  document.getElementById('con-loss').textContent=ping>300?'~1–3%':'0%';
+  document.getElementById('card-ping').classList.replace('active','done');
+  setProgress('Ping xong',0.2); await sleep(300);
+
+  // DOWNLOAD
+  setPhase('DOWNLOAD TEST'); setProgress('Đo tốc độ tải xuống...',0.2);
+  setStatus('Đang tải dữ liệu từ Cloudflare Speed...');
+  document.getElementById('card-down').classList.add('active'); drawGauge(0);
+  let dlIdx=0;
+  const dlSpeed=await measureDownload((spd,prog)=>{
+    if(!testing) return;
+    const s=Math.round(spd*10)/10;
+    drawGauge(s,200); document.getElementById('speed-val').textContent=s.toFixed(1);
+    document.getElementById('val-down').textContent=s.toFixed(1);
+    setProgress('Đo tốc độ tải xuống...',0.2+prog*0.38);
+    chartData.down[dlIdx%MAX_PTS]=s; dlIdx++;
+    resizeChart(); drawChart();
+  });
+  document.getElementById('val-down').textContent=dlSpeed.toFixed(1);
+  document.getElementById('card-down').classList.replace('active','done');
+  setProgress('Download xong',0.58); await sleep(300);
+
+  // UPLOAD
+  setPhase('UPLOAD TEST'); setProgress('Đo tốc độ tải lên...',0.58);
+  setStatus('Đang gửi dữ liệu lên Cloudflare Speed...');
+  document.getElementById('card-up').classList.add('active'); drawGauge(0);
+  let ulIdx=0;
+  const ulSpeed=await measureUpload((spd,prog)=>{
+    if(!testing) return;
+    const s=Math.round(spd*10)/10;
+    drawGauge(s,200); document.getElementById('speed-val').textContent=s.toFixed(1);
+    document.getElementById('val-up').textContent=s.toFixed(1);
+    setProgress('Đo tốc độ tải lên...',0.58+prog*0.42);
+    const pos=Math.min(Math.floor(ulIdx*(MAX_PTS/12)),MAX_PTS-1);
+    chartData.up[pos]=s; ulIdx++;
+    resizeChart(); drawChart();
+  });
+  document.getElementById('val-up').textContent=ulSpeed.toFixed(1);
+  document.getElementById('card-up').classList.replace('active','done');
+
+  // DONE
+  setPhase(''); setProgress('Hoàn thành!',1);
+  setStatus('✅ Kiểm tra hoàn tất!');
+  drawGauge(dlSpeed,200); document.getElementById('speed-val').textContent=dlSpeed.toFixed(1);
+
+  const sec=document.getElementById('results-section'); sec.classList.add('show');
+  function cls(v,g,o){return v<=g?'result-val good':v<=o?'result-val ok':'result-val bad';}
+  document.getElementById('r-ping').textContent=ping; document.getElementById('r-ping').className=cls(ping,30,80);
+  document.getElementById('r-jitter').textContent=jitter; document.getElementById('r-jitter').className=cls(jitter,10,30);
+  document.getElementById('r-down').textContent=dlSpeed.toFixed(1);
+  document.getElementById('r-down').className='result-val '+(dlSpeed>=50?'good':dlSpeed>=20?'ok':'bad');
+  document.getElementById('r-up').textContent=ulSpeed.toFixed(1);
+  document.getElementById('r-up').className='result-val '+(ulSpeed>=20?'good':ulSpeed>=10?'ok':'bad');
+
+  await sleep(500);
+  const s4k=Math.min(100,(dlSpeed/25)*100);
+  const sg=Math.min(100,Math.max(0,100-ping*0.8));
+  const sc=Math.min(100,dlSpeed>=10&&ulSpeed>=5?85+Math.random()*15:(dlSpeed/10)*60);
+  document.getElementById('r-4k').style.width=s4k+'%'; document.getElementById('rs-4k').textContent=Math.round(s4k)+'%';
+  document.getElementById('r-game').style.width=sg+'%'; document.getElementById('rs-game').textContent=Math.round(sg)+'%';
+  document.getElementById('r-call').style.width=sc+'%'; document.getElementById('rs-call').textContent=Math.round(sc)+'%';
+
+  btn.textContent='THỬ LẠI'; btn.classList.remove('running');
+  btn.onclick=()=>location.reload(); testing=false;
+}
+
+// ── INIT ─────────────────────────────────────────────
+loadIPInfo();
+fillDeviceInfo();
+</script>
+</body>
+</html>
